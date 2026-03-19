@@ -6,10 +6,11 @@ import checklistTemplateService from "../services/checklistTemplateService";
 import { handleZodError } from "../middleware/zodErrorHandler";
 
 const router = express.Router();
+const PERFORMANCE_ALLOWED_ROLES = [USER_ROLES.ADMIN, USER_ROLES.INSTRUCTOR];
 
 router.get(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.GET_ALL,
-  validatePermissions([USER_ROLES.ADMIN, USER_ROLES.INSTRUCTOR], ACTION.GET_ALL),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.GET_ALL),
   async (req: Request, res: Response) => {
     try {
       const result = await checklistTemplateService.getChecklistTemplates({
@@ -26,7 +27,7 @@ router.get(
 
 router.get(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.GET_BY_ID,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.GET_BY_ID),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.GET_BY_ID),
   async (req: Request, res: Response) => {
     try {
       const template = await checklistTemplateService.getChecklistTemplate(req.params.id, {
@@ -43,7 +44,7 @@ router.get(
 
 router.post(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.CREATE,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.CREATE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.CREATE),
   async (req: Request, res: Response) => {
     try {
       const data = {
@@ -61,7 +62,7 @@ router.post(
 
 router.put(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.UPDATE,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.UPDATE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.UPDATE),
   async (req: Request, res: Response) => {
     try {
       const updated = await checklistTemplateService.updateChecklistTemplate({
@@ -77,7 +78,7 @@ router.put(
 
 router.put(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.ARCHIVE,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.ARCHIVE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.ARCHIVE),
   async (req: Request, res: Response) => {
     try {
       const archived = await checklistTemplateService.archiveChecklistTemplate(
@@ -93,7 +94,7 @@ router.put(
 
 router.post(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.ADD_ITEM,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.CREATE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.CREATE),
   async (req: Request, res: Response) => {
     try {
       const updated = await checklistTemplateService.addChecklistTemplateItem({
@@ -113,7 +114,7 @@ router.post(
 
 router.put(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.UPDATE_ITEM,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.UPDATE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.UPDATE),
   async (req: Request, res: Response) => {
     try {
       const updated = await checklistTemplateService.updateChecklistTemplateItem({
@@ -134,7 +135,7 @@ router.put(
 
 router.delete(
   API_ENDPOINTS.CHECKLIST_TEMPLATE.REMOVE_ITEM,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.DELETE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.DELETE),
   async (req: Request, res: Response) => {
     try {
       const updated = await checklistTemplateService.removeChecklistTemplateItem({

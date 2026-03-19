@@ -6,10 +6,11 @@ import employeeChecklistService from "../services/employeeChecklistService";
 import { handleZodError } from "../middleware/zodErrorHandler";
 
 const router = express.Router();
+const PERFORMANCE_ALLOWED_ROLES = [USER_ROLES.ADMIN, USER_ROLES.INSTRUCTOR];
 
 router.get(
   API_ENDPOINTS.EMPLOYEE_CHECKLIST.GET_ALL,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.GET_ALL),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.GET_ALL),
   async (req: Request, res: Response) => {
     try {
       const result = await employeeChecklistService.getEmployeeChecklists({
@@ -28,7 +29,7 @@ router.get(
 
 router.get(
   API_ENDPOINTS.EMPLOYEE_CHECKLIST.GET_BY_ID,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.GET_BY_ID),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.GET_BY_ID),
   async (req: Request, res: Response) => {
     try {
       const checklist = await employeeChecklistService.getEmployeeChecklist(
@@ -47,7 +48,7 @@ router.get(
 
 router.post(
   API_ENDPOINTS.EMPLOYEE_CHECKLIST.CREATE,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.CREATE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.CREATE),
   async (req: Request, res: Response) => {
     try {
       const payload = {
@@ -68,7 +69,7 @@ router.post(
 
 router.put(
   API_ENDPOINTS.EMPLOYEE_CHECKLIST.UPDATE,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.UPDATE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.UPDATE),
   async (req: Request, res: Response) => {
     try {
       const updated = await employeeChecklistService.updateEmployeeChecklist(req.body);
@@ -84,7 +85,7 @@ router.put(
 
 router.put(
   API_ENDPOINTS.EMPLOYEE_CHECKLIST.ARCHIVE,
-  validatePermissions([USER_ROLES.ADMIN], ACTION.ARCHIVE),
+  validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.ARCHIVE),
   async (req: Request, res: Response) => {
     try {
       const archived = await employeeChecklistService.archiveEmployeeChecklist(
