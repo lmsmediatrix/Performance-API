@@ -29,13 +29,24 @@ const unifiedAuthMiddleware = asyncHandler(
     const authHeader = req.headers.authorization || req.headers.Authorization;
     if (typeof authHeader === "string") {
       const tokenMatch = authHeader.match(/^Bearer\s+(.*)$/i);
-      if (tokenMatch) {
-        token = tokenMatch[1];
+      token = tokenMatch?.[1]?.trim() || authHeader.trim();
+    }
+
+    if (!token) {
+      const xAccessToken = req.headers["x-access-token"];
+      if (typeof xAccessToken === "string") {
+        token = xAccessToken.trim();
+      } else if (Array.isArray(xAccessToken) && xAccessToken.length > 0) {
+        token = xAccessToken[0]?.trim() || null;
       }
     }
 
     if (!token) {
-      token = req.cookies?.[config.JWTCONFIG.CLEAR_COOKIE];
+      token =
+        req.cookies?.[config.JWTCONFIG.CLEAR_COOKIE] ||
+        req.cookies?.accessToken ||
+        req.cookies?.token ||
+        null;
     }
 
     if (!token) {
