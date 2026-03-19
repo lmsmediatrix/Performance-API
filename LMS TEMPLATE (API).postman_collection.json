@@ -1,0 +1,296 @@
+{
+  "info": {
+    "name": "ps-api Performance Checklist",
+    "_postman_id": "e3c4f0d4-0000-4000-9000-aaaaaaaaaaaa",
+    "description": "Postman collection for ps-api (performance checklist, templates, employee checklists).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health (ping)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": [""]
+        }
+      }
+    },
+    {
+      "name": "Checklist Template",
+      "item": [
+        {
+          "name": "Create Checklist Template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Default Performance Checklist\",\n  \"description\": \"Annual performance KPIs\",\n  \"items\": [\n    {\n      \"name\": \"Attendance\",\n      \"description\": \"Overall attendance percentage\",\n      \"itemType\": \"quantitative\",\n      \"targetValue\": 95,\n      \"threshold\": 90,\n      \"unit\": \"%\",\n      \"weight\": 2,\n      \"dataSource\": \"lms\"\n    },\n    {\n      \"name\": \"Certificates\",\n      \"description\": \"Certificates required per year\",\n      \"itemType\": \"certification\",\n      \"targetValue\": 5,\n      \"threshold\": 5,\n      \"unit\": \"count\",\n      \"weight\": 1,\n      \"dataSource\": \"lms\"\n    },\n    {\n      \"name\": \"No Late\",\n      \"description\": \"Number of late arrivals\",\n      \"itemType\": \"quantitative\",\n      \"targetValue\": 0,\n      \"threshold\": 0,\n      \"unit\": \"count\",\n      \"weight\": 1,\n      \"dataSource\": \"manual\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/checklist-template/create",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "checklist-template", "create"]
+            }
+          }
+        },
+        {
+          "name": "Get All Checklist Templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/checklist-template/get/all?page=1&limit=10",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "checklist-template", "get", "all"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Checklist Template By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/checklist-template/get/{{checklistTemplateId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "checklist-template", "get", "{{checklistTemplateId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Checklist Template",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"_id\": \"{{checklistTemplateId}}\",\n  \"name\": \"Default Performance Checklist (Updated)\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/checklist-template/update",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "checklist-template", "update"]
+            }
+          }
+        },
+        {
+          "name": "Archive Checklist Template",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/checklist-template/archive/{{checklistTemplateId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "checklist-template", "archive", "{{checklistTemplateId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee Checklist",
+      "item": [
+        {
+          "name": "Assign Checklist to Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{employeeId}}\",\n  \"checklistTemplateId\": \"{{checklistTemplateId}}\",\n  \"assignedDate\": \"2026-01-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-12-31T23:59:59.000Z\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/employee-checklist/create",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "employee-checklist", "create"]
+            }
+          }
+        },
+        {
+          "name": "Get All Employee Checklists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/employee-checklist/get/all?page=1&limit=10",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "employee-checklist", "get", "all"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employee Checklist By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/employee-checklist/get/{{employeeChecklistId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "employee-checklist", "get", "{{employeeChecklistId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Employee Checklist (e.g. status)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"_id\": \"{{employeeChecklistId}}\",\n  \"status\": \"in-progress\",\n  \"managerFeedback\": \"Good progress so far\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/employee-checklist/update",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "employee-checklist", "update"]
+            }
+          }
+        },
+        {
+          "name": "Archive Employee Checklist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/employee-checklist/archive/{{employeeChecklistId}}",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "employee-checklist", "archive", "{{employeeChecklistId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "access_token",
+      "value": "REPLACE_ME_WITH_JWT_FROM_LMS",
+      "type": "string"
+    },
+    {
+      "key": "checklistTemplateId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employeeChecklistId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employeeId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

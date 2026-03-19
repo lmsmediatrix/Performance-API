@@ -1,0 +1,89 @@
+import { NextFunction, Response } from "express";
+import asyncHandler from "express-async-handler";
+import jwt from "jsonwebtoken";
+import { config } from "../config/common";
+import { CustomRequest } from "../type/types";
+
+interface DecodedToken {
+  user: {
+    id: string;
+    email: string;
+    firstname?: string;
+    lastname?: string;
+    // direct org id (new tokens)
+    organizationId?: string;
+    // full org object (from LMS token)
+    organization?: any;
+    role?: string;
+  };
+  iat: number;
+}
+
+// Default organization id for Uzaro University (used when token carries full org object or no org id)
+const DEFAULT_ORGANIZATION_ID = "69aa7492ac4fedd36fe18688";
+
+const unifiedAuthMiddleware = asyncHandler(
+  async (req: CustomRequest, res: Response, next: NextFunction) => {
+    let token: string | null = null;
+
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (typeof authHeader === "string") {
+      const tokenMatch = authHeader.match(/^Bearer\s+(.*)$/i);
+      if (tokenMatch) {
+        token = tokenMatch[1];
+      }
+    }
+
+    if (!token) {
+      token = req.cookies?.[config.JWTCONFIG.CLEAR_COOKIE];
+    }
+
+    if (!token) {
+      res.status(401).json({ message: config.ERROR.USER.NOT_AUTHORIZED });
+      return;
+    }
+
+    try {
+      const decoded = jwt.verify(
+        token,
+        process.env.ACCESS_TOKEN_SECRET || config.JWTCONFIG.SECRET
+      ) as DecodedToken;
+
+      if (!decoded.user || !decoded.user.id) {
+        res.status(401).json({ message: config.ERROR.USER.NOT_AUTHORIZED });
+        return;
+      }
+
+      let organizationIdFromToken: string =
+        decoded.user.organizationId || decoded.user.organization?._id || "";
+
+      // If the value is not a plain 24-char hex ObjectId string
+      // (e.g., it's a full organization object serialized as string),
+      // and this is the Uzaro University admin, fallback to known org id.
+      const isValidObjectIdString =
+        typeof organizationIdFromToken === "string" &&
+        /^[0-9a-fA-F]{24}$/.test(organizationIdFromToken);
+
+      if (!isValidObjectIdString && decoded.user.email === "uzaro-university@gmail.com") {
+        organizationIdFromToken = DEFAULT_ORGANIZATION_ID;
+      }
+
+      req.user = {
+        id: decoded.user.id,
+        email: decoded.user.email,
+        firstName: decoded.user.firstname || "",
+        lastName: decoded.user.lastname || "",
+        role: decoded.user.role || "",
+        organizationId: organizationIdFromToken,
+      };
+      req.token = token;
+
+      next();
+    } catch (error) {
+      res.clearCookie(config.JWTCONFIG.CLEAR_COOKIE);
+      res.status(401).json({ message: config.ERROR.USER.NOT_AUTHORIZED });
+    }
+  }
+);
+
+export default unifiedAuthMiddleware;

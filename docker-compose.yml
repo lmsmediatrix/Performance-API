@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT}:${PORT}"
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+      - DB_URI=${DB_URI}
+    restart: always
+    volumes:
+      - .:/app
+      - /app/node_modules
