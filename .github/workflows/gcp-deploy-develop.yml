@@ -1,0 +1,187 @@
+name: Deploy PS API to Cloud Run (Develop)
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: gcp-deploy-ps-api-develop
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID: performance-api-490703
+  REGION: asia-southeast1
+  SERVICE_NAME: ps-api-develop
+  CONTAINER_PORT: 8080
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required GCP secrets
+        run: |
+          if [ -z "${{ secrets.GCP_WIF_PROVIDER }}" ]; then
+            echo "Missing required secret: GCP_WIF_PROVIDER"
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.GCP_SERVICE_ACCOUNT }}" ]; then
+            echo "Missing required secret: GCP_SERVICE_ACCOUNT"
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure gcloud project
+        run: gcloud config set project "$PROJECT_ID"
+
+      - name: Verify GCP access
+        run: gcloud auth list
+
+      - name: Build backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare .env.develop
+        run: |
+          if [ -n "${{ secrets.ENV_DEVELOP_FILE }}" ]; then
+            printf "%s" "${{ secrets.ENV_DEVELOP_FILE }}" > .env.develop
+            echo ".env.develop created from GitHub secret ENV_DEVELOP_FILE"
+          elif [ ! -f .env.develop ]; then
+            echo "WARN: .env.develop not found and ENV_DEVELOP_FILE is empty. Creating minimal file."
+            {
+              echo "NODE_ENV=production"
+              echo "REDIS_ENABLED=false"
+            } > .env.develop
+          else
+            echo "Using repository .env.develop"
+          fi
+
+      - name: Convert .env.develop to Cloud Run env file
+        run: |
+          echo "Converting .env.develop to env.yaml..."
+          : > env.yaml
+
+          RESERVED_VARS="PORT K_SERVICE K_REVISION K_CONFIGURATION"
+
+          while IFS='=' read -r key value || [ -n "$key" ]; do
+            [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+
+            key=$(echo "$key" | xargs)
+
+            if echo "$RESERVED_VARS" | grep -qw "$key"; then
+              echo "Skipping reserved variable: $key"
+              continue
+            fi
+
+            value=$(echo "${value:-}" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+            value=$(echo "$value" | sed 's/^"//' | sed 's/"$//')
+            value=$(echo "$value" | sed "s/'//g")
+
+            [[ -z "$value" ]] && continue
+
+            escaped_value=$(printf '%s' "$value" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+            echo "${key}: \"${escaped_value}\"" >> env.yaml
+          done < .env.develop
+
+          echo "env.yaml created successfully"
+
+      - name: Build container image
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        run: |
+          if [ ! -f Dockerfile ] && [ -f dockerfile ]; then
+            cp dockerfile Dockerfile
+          fi
+          BUILD_OP=$(gcloud builds submit --tag "$IMAGE" . --async --format='value(name)')
+          BUILD_ID="${BUILD_OP##*/}"
+
+          if [ -z "$BUILD_ID" ]; then
+            echo "Failed to determine Cloud Build ID from operation: $BUILD_OP"
+            exit 1
+          fi
+
+          echo "Cloud Build operation: $BUILD_OP"
+          echo "Cloud Build ID: $BUILD_ID"
+
+          while true; do
+            STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)')
+            echo "Build status: $STATUS"
+
+            if [ "$STATUS" = "SUCCESS" ]; then
+              break
+            fi
+
+            if [ "$STATUS" = "FAILURE" ] || [ "$STATUS" = "INTERNAL_ERROR" ] || [ "$STATUS" = "CANCELLED" ] || [ "$STATUS" = "TIMEOUT" ] || [ "$STATUS" = "EXPIRED" ]; then
+              echo "Build failed with status: $STATUS"
+              echo "Build logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+      - name: Deploy to Cloud Run (develop)
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/cloud-run-source-deploy/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        run: |
+          gcloud run deploy "$SERVICE_NAME" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --platform managed \
+            --allow-unauthenticated \
+            --env-vars-file env.yaml \
+            --port "$CONTAINER_PORT" \
+            --quiet
+
+      - name: Get service URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format 'value(status.url)')
+          echo "Service deployed to: $SERVICE_URL"
+          echo "SERVICE_URL=$SERVICE_URL" >> "$GITHUB_ENV"
+
+      - name: Smoke check with retries
+        run: |
+          set +e
+          max_attempts=10
+          attempt=1
+
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "Smoke check attempt $attempt of $max_attempts..."
+            http_code=$(curl -s -o /tmp/health.txt -w "%{http_code}" "$SERVICE_URL/")
+
+            if [ "$http_code" = "200" ] || [ "$http_code" = "401" ] || [ "$http_code" = "403" ]; then
+              echo "OK: Service is up (HTTP $http_code)"
+              exit 0
+            fi
+
+            echo "WARN: Received HTTP $http_code"
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              sleep 15
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          echo "ERROR: Service failed smoke check"
+          exit 1
