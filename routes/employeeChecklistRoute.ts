@@ -6,7 +6,11 @@ import employeeChecklistService from "../services/employeeChecklistService";
 import { handleZodError } from "../middleware/zodErrorHandler";
 
 const router = express.Router();
-const PERFORMANCE_ALLOWED_ROLES = [USER_ROLES.ADMIN, USER_ROLES.INSTRUCTOR];
+const PERFORMANCE_ALLOWED_ROLES = [
+  USER_ROLES.ADMIN,
+  USER_ROLES.INSTRUCTOR,
+  USER_ROLES.STUDENT,
+];
 
 router.get(
   API_ENDPOINTS.EMPLOYEE_CHECKLIST.GET_ALL,
