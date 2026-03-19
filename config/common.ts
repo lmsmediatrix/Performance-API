@@ -232,6 +232,7 @@ export const config = {
         callback,
         "https://lms-app-dev-1f189.web.app",
         "https://lms-app-dev.site",
+        "https://mediatrix-lms-app-dev.web.app",
         "https://mediatrix-performance-app-dev.web.app"
       );
     },
