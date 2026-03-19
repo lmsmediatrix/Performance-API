@@ -55,10 +55,32 @@ const unifiedAuthMiddleware = asyncHandler(
     }
 
     try {
-      const decoded = jwt.verify(
-        token,
-        process.env.ACCESS_TOKEN_SECRET || config.JWTCONFIG.SECRET
-      ) as DecodedToken;
+      const candidateSecrets = Array.from(
+        new Set(
+          [
+            process.env.ACCESS_TOKEN_SECRET,
+            process.env.LMS_ACCESS_TOKEN_SECRET,
+            process.env.JWT_SECRET,
+            config.JWTCONFIG.SECRET,
+          ].filter((secret): secret is string => Boolean(secret && secret.trim()))
+        )
+      );
+
+      let decoded: DecodedToken | null = null;
+      for (const secret of candidateSecrets) {
+        try {
+          decoded = jwt.verify(token, secret) as DecodedToken;
+          break;
+        } catch (_error) {
+          continue;
+        }
+      }
+
+      if (!decoded) {
+        res.clearCookie(config.JWTCONFIG.CLEAR_COOKIE);
+        res.status(401).json({ message: config.ERROR.USER.NOT_AUTHORIZED });
+        return;
+      }
 
       if (!decoded.user || !decoded.user.id) {
         res.status(401).json({ message: config.ERROR.USER.NOT_AUTHORIZED });
