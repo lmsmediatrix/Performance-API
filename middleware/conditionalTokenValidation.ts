@@ -18,6 +18,10 @@ const excludeFromTokenValidation: Exclusion[] = [
     path: API_ENDPOINTS.USER.LOGIN,
     method: config.METHOD.POST,
   },
+  {
+    path: API_ENDPOINTS.USER.LOGOUT,
+    method: config.METHOD.POST,
+  },
   // {
   //   path: API_ENDPOINTS.USER.CHECKLOGIN,
   //   method: config.METHOD.POST,
