@@ -46,7 +46,8 @@ async function getChecklistTemplates(params: any) {
     const page = params.page || 1;
     const limit = params.limit || 10;
     const dbParams: any = {
-      query: { isDeleted: false },
+      // Keep legacy archived templates listable even if they were previously soft-deleted.
+      query: { $or: [{ isDeleted: false }, { "archive.status": true }] },
       options: {
         sort: params.sort || { createdAt: -1 },
         skip: (page - 1) * limit,
@@ -134,11 +135,13 @@ async function archiveChecklistTemplate(id: string, organizationId: string) {
   }
   try {
     const template = await getTemplateForWrite(id, organizationId);
-    template.isDeleted = true;
+    const nextArchiveStatus = !Boolean(template.archive?.status);
     template.archive = {
-      status: true,
-      date: new Date(),
+      status: nextArchiveStatus,
+      date: nextArchiveStatus ? new Date() : null,
     };
+    // Keep archived templates listable; isDeleted is reserved for true deletion.
+    template.isDeleted = false;
     await template.save();
     return template;
   } catch (error) {
@@ -260,7 +263,7 @@ async function getTemplateForWrite(templateId: string, organizationId: string) {
     {
       query: {
         organizationId,
-        isDeleted: false,
+        $or: [{ isDeleted: false }, { "archive.status": true }],
       },
       options: {
         lean: false,
