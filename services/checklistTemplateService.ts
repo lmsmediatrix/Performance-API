@@ -1,10 +1,11 @@
-import { config } from "../config/common";
+﻿import { config } from "../config/common";
 import {
   ChecklistItemZodSchema,
   ChecklistTemplateZodSchema,
 } from "../models/checklistTemplateModel";
 import checklistTemplateRepository from "../repository/checklistTemplateRepository";
 import { generatePagination } from "../utils/paginationUtils";
+import employeeChecklistService from "./employeeChecklistService";
 
 const checklistTemplateService = {
   getChecklistTemplate,
@@ -167,7 +168,16 @@ async function addChecklistTemplateItem(data: any) {
     );
     const item = ChecklistItemZodSchema.parse(data.item);
     (template.items as any).push(item);
+    const createdItem = (template.items as any)[(template.items as any).length - 1];
+
     await template.save();
+
+    await employeeChecklistService.syncTemplateItemAdded({
+      organizationId: data.organizationId,
+      templateId: data.templateId,
+      item: createdItem,
+    });
+
     return template;
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));
@@ -217,7 +227,16 @@ async function updateChecklistTemplateItem(data: any) {
       _id: currentItem._id,
     };
 
+    const updatedItem = (template.items as any)[itemIndex];
+
     await template.save();
+
+    await employeeChecklistService.syncTemplateItemUpdated({
+      organizationId: data.organizationId,
+      templateId: data.templateId,
+      item: updatedItem,
+    });
+
     return template;
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));
@@ -250,7 +269,15 @@ async function removeChecklistTemplateItem(data: any) {
     }
 
     (template as any).items = nextItems;
+
     await template.save();
+
+    await employeeChecklistService.syncTemplateItemRemoved({
+      organizationId: data.organizationId,
+      templateId: data.templateId,
+      itemId: data.itemId,
+    });
+
     return template;
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));
@@ -277,4 +304,5 @@ async function getTemplateForWrite(templateId: string, organizationId: string) {
 
   return template;
 }
+
 
