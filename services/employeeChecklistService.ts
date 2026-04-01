@@ -1,4 +1,4 @@
-import { config } from "../config/common";
+﻿import { config } from "../config/common";
 import employeeChecklistRepository from "../repository/employeeChecklistRepository";
 import checklistTemplateRepository from "../repository/checklistTemplateRepository";
 import { generatePagination } from "../utils/paginationUtils";
@@ -10,6 +10,9 @@ const employeeChecklistService = {
   updateEmployeeChecklist,
   archiveEmployeeChecklist,
   searchEmployeeChecklist,
+  syncTemplateItemAdded,
+  syncTemplateItemUpdated,
+  syncTemplateItemRemoved,
 };
 
 export default employeeChecklistService;
@@ -36,23 +39,9 @@ async function assignChecklist(data: any) {
     throw new Error("Checklist template not found");
   }
 
-  const items = (template.items || []).map((item: any) => ({
-    checklistItemId: item._id,
-    name: item.name,
-    description: item.description,
-    itemType: item.itemType,
-    quantitativeRule: item.quantitativeRule ?? "percentage",
-    targetValue: item.targetValue,
-    threshold: item.threshold,
-    unit: item.unit,
-    weight: item.weight,
-    dataSource: item.dataSource,
-    actualValue: null,
-    calculatedPercentage: undefined,
-    isMet: undefined,
-    managerNotes: "",
-    overrideHistory: [],
-  }));
+  const items = (template.items || []).map((item: any) =>
+    mapTemplateItemToEmployeeChecklistItem(item)
+  );
 
   const payload: any = {
     organizationId: data.organizationId,
@@ -176,6 +165,200 @@ async function searchEmployeeChecklist(params: any) {
   return employeeChecklistRepository.searchEmployeeChecklist(dbParams);
 }
 
+async function syncTemplateItemAdded(data: any) {
+  if (!data?.organizationId || !data?.templateId || !data?.item?._id) {
+    throw new Error("Invalid parameters for syncing added checklist template item");
+  }
+
+  const itemId = normalizeObjectId(data.item._id);
+  const checklists = await getTemplateAssignedChecklists(
+    data.organizationId,
+    data.templateId
+  );
+
+  for (const checklist of checklists) {
+    const checklistObject =
+      typeof (checklist as any).toObject === "function"
+        ? (checklist as any).toObject()
+        : checklist;
+
+    const existingItems = Array.isArray(checklistObject.items)
+      ? checklistObject.items
+      : [];
+
+    const itemExists = existingItems.some(
+      (item: any) => normalizeObjectId(item?.checklistItemId) === itemId
+    );
+
+    if (itemExists) {
+      continue;
+    }
+
+    const nextItems = [
+      ...existingItems,
+      mapTemplateItemToEmployeeChecklistItem(data.item),
+    ];
+
+    await persistRecalculatedChecklist(checklist, nextItems);
+  }
+}
+
+async function syncTemplateItemUpdated(data: any) {
+  if (!data?.organizationId || !data?.templateId || !data?.item?._id) {
+    throw new Error("Invalid parameters for syncing updated checklist template item");
+  }
+
+  const itemId = normalizeObjectId(data.item._id);
+  const checklists = await getTemplateAssignedChecklists(
+    data.organizationId,
+    data.templateId
+  );
+
+  for (const checklist of checklists) {
+    const checklistObject =
+      typeof (checklist as any).toObject === "function"
+        ? (checklist as any).toObject()
+        : checklist;
+
+    const existingItems = Array.isArray(checklistObject.items)
+      ? checklistObject.items
+      : [];
+
+    const itemIndex = existingItems.findIndex(
+      (item: any) => normalizeObjectId(item?.checklistItemId) === itemId
+    );
+
+    if (itemIndex < 0) {
+      continue;
+    }
+
+    const existingItem = existingItems[itemIndex] || {};
+    const templateBasedItem = mapTemplateItemToEmployeeChecklistItem(data.item);
+
+    const nextItem = {
+      ...existingItem,
+      ...templateBasedItem,
+      checklistItemId: data.item._id,
+      actualValue: existingItem.actualValue,
+      calculatedPercentage: existingItem.calculatedPercentage,
+      isMet: existingItem.isMet,
+      managerNotes: existingItem.managerNotes ?? "",
+      overrideHistory: existingItem.overrideHistory ?? [],
+    };
+
+    const nextItems = [...existingItems];
+    nextItems[itemIndex] = nextItem;
+
+    await persistRecalculatedChecklist(checklist, nextItems);
+  }
+}
+
+async function syncTemplateItemRemoved(data: any) {
+  if (!data?.organizationId || !data?.templateId || !data?.itemId) {
+    throw new Error("Invalid parameters for syncing removed checklist template item");
+  }
+
+  const itemId = normalizeObjectId(data.itemId);
+  const checklists = await getTemplateAssignedChecklists(
+    data.organizationId,
+    data.templateId
+  );
+
+  for (const checklist of checklists) {
+    const checklistObject =
+      typeof (checklist as any).toObject === "function"
+        ? (checklist as any).toObject()
+        : checklist;
+
+    const existingItems = Array.isArray(checklistObject.items)
+      ? checklistObject.items
+      : [];
+
+    const nextItems = existingItems.filter(
+      (item: any) => normalizeObjectId(item?.checklistItemId) !== itemId
+    );
+
+    if (nextItems.length === existingItems.length) {
+      continue;
+    }
+
+    await persistRecalculatedChecklist(checklist, nextItems);
+  }
+}
+
+async function getTemplateAssignedChecklists(
+  organizationId: string,
+  templateId: string
+) {
+  return employeeChecklistRepository.getEmployeeChecklists({
+    query: {
+      organizationId,
+      checklistTemplateId: templateId,
+      isDeleted: false,
+    },
+    options: {
+      lean: false,
+      limit: 100000,
+    },
+  });
+}
+
+async function persistRecalculatedChecklist(checklistDoc: any, items: any[]) {
+  const checklistObject =
+    typeof checklistDoc.toObject === "function"
+      ? checklistDoc.toObject()
+      : checklistDoc;
+
+  const recalculated = recalculateEmployeeChecklist({
+    ...checklistObject,
+    items,
+  });
+
+  checklistDoc.items = recalculated.items;
+  checklistDoc.overallScore = recalculated.overallScore;
+  checklistDoc.overallStatus = recalculated.overallStatus;
+  checklistDoc.status = recalculated.status;
+  checklistDoc.completedDate = recalculated.completedDate;
+
+  await checklistDoc.save();
+}
+
+function mapTemplateItemToEmployeeChecklistItem(item: any) {
+  return {
+    checklistItemId: item._id,
+    name: item.name,
+    description: item.description,
+    itemType: item.itemType,
+    quantitativeRule: item.quantitativeRule ?? "percentage",
+    targetValue: item.targetValue,
+    threshold: item.threshold,
+    unit: item.unit,
+    weight: item.weight,
+    dataSource: item.dataSource,
+    actualValue: null,
+    calculatedPercentage: undefined,
+    isMet: undefined,
+    managerNotes: "",
+    overrideHistory: [],
+  };
+}
+
+function normalizeObjectId(value: unknown): string {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof (value as any).toString === "function") {
+    return (value as any).toString();
+  }
+
+  return "";
+}
+
 function recalculateEmployeeChecklist(checklist: any) {
   const items = (checklist.items || []).map((item: any) => {
     if (item.itemType !== "quantitative") return item;
@@ -278,4 +461,3 @@ function toNumber(value: unknown): number | null {
 function hasValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
 }
-
