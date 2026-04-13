@@ -96,6 +96,13 @@ async function getEmployeeChecklists(params: any) {
   try {
     const page = Number(params.page) > 0 ? Number(params.page) : 1;
     const limit = Number(params.limit) > 0 ? Number(params.limit) : 10;
+    const actorRole = normalizeRole(params?.actor?.role);
+    const actorSubrole = normalizeRole(params?.actor?.subrole);
+    const actorId = toObjectIdString(params?.actor?.id);
+    const isManagerWorkspaceActor =
+      SELF_FEEDBACK_ROLES.has(actorRole) &&
+      actorSubrole === "manager" &&
+      Boolean(actorId);
     const dbParams: any = {
       query: { isDeleted: false },
       options: {
@@ -115,7 +122,20 @@ async function getEmployeeChecklists(params: any) {
     }
 
     if (scopedEmployeeIds) {
-      dbParams.query.employeeId = { $in: toMongoIdCandidates(scopedEmployeeIds) };
+      const scopedEmployeeFilter = {
+        employeeId: { $in: toMongoIdCandidates(scopedEmployeeIds) },
+      };
+
+      // In environments where LMS direct-report lookup is unavailable,
+      // managers should still see checklists they personally assigned.
+      if (isManagerWorkspaceActor && actorId && !params.employeeId) {
+        dbParams.query.$or = [
+          scopedEmployeeFilter,
+          { assignedBy: { $in: toMongoIdCandidates([actorId]) } },
+        ];
+      } else {
+        dbParams.query.employeeId = scopedEmployeeFilter.employeeId;
+      }
     }
 
     if (params.employeeId) {
@@ -807,13 +827,20 @@ function extractLmsUserArray(payload: any): any[] {
 }
 
 function resolveLmsBaseUrl(): string {
-  const baseUrl =
+  const configuredBaseUrl =
     process.env.LMS_BASE_URL ||
     process.env.LMS_API_BASE_URL ||
-    process.env.LMS_API_URL ||
-    "http://localhost:5000/api";
+    process.env.LMS_API_URL;
 
-  return baseUrl.replace(/\/+$/, "");
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/+$/, "");
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "";
+  }
+
+  return "http://localhost:5000/api";
 }
 
 function normalizeObjectId(value: unknown): string {

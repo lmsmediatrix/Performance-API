@@ -7,10 +7,15 @@ import { Express } from "express";
 // This configuration helps prevent cross-origin resource sharing (CORS) issues by defining which origins are allowed to access the server and what methods are allowed to be used.
 
 const createCorsOptions = (): CorsOptions => {
+  const envAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
   const allowedOrigins: (
     | string
     | ((origin: string, callback: (err: Error | null, allow?: boolean) => void) => void)
-  )[] = [config.CORS.LOCAL, config.CORS.DEV_SITE, config.CORS.TEST_SITE];
+  )[] = [config.CORS.LOCAL, config.CORS.DEV_SITE, config.CORS.TEST_SITE, ...envAllowedOrigins];
 
   const corsOptionsDelegate: CorsOptionsDelegate = (req, callback) => {
     const origin = req.headers.origin;
