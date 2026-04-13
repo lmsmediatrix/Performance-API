@@ -10,6 +10,7 @@ const PERFORMANCE_ALLOWED_ROLES = [
   USER_ROLES.ADMIN,
   USER_ROLES.INSTRUCTOR,
   USER_ROLES.STUDENT,
+  USER_ROLES.EMPLOYEE,
 ];
 
 router.get(
@@ -21,6 +22,13 @@ router.get(
         organizationId: (req as any).user?.organizationId,
         page: req.query.page,
         limit: req.query.limit,
+        actor: {
+          id: (req as any).user?.id,
+          email: (req as any).user?.email,
+          role: (req as any).user?.role,
+          subrole: (req as any).user?.subrole,
+          token: (req as any).token,
+        },
       });
       res
         .status(200)
@@ -76,7 +84,16 @@ router.put(
   validatePermissions(PERFORMANCE_ALLOWED_ROLES, ACTION.UPDATE),
   async (req: Request, res: Response) => {
     try {
-      const updated = await employeeChecklistService.updateEmployeeChecklist(req.body);
+      const updated = await employeeChecklistService.updateEmployeeChecklist(req.body, {
+        actor: {
+          id: (req as any).user?.id,
+          email: (req as any).user?.email,
+          role: (req as any).user?.role,
+          subrole: (req as any).user?.subrole,
+          token: (req as any).token,
+          organizationId: (req as any).user?.organizationId,
+        },
+      });
       res.status(200).json({
         message: config.SUCCESS.EMPLOYEE_CHECKLIST.UPDATE,
         data: updated,

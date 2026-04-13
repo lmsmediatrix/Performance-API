@@ -16,6 +16,9 @@ export const EmployeeChecklistItemZodSchema = z.object({
   calculatedPercentage: z.number().optional(),
   isMet: z.boolean().optional(),
   managerNotes: z.string().optional(),
+  employeeActualValue: z.any().optional(),
+  employeeIsMet: z.boolean().optional(),
+  employeeNotes: z.string().optional(),
   overrideHistory: z
     .array(
       z.object({
@@ -49,6 +52,7 @@ export const EmployeeChecklistZodSchema = z.object({
     .optional()
     .default("not-started"),
   managerFeedback: z.string().optional(),
+  employeeSelfFeedback: z.string().optional(),
   completedDate: z.date().optional(),
   isDeleted: z.boolean().default(false),
   archive: z
@@ -91,6 +95,9 @@ const EmployeeChecklistItemSchema = new Schema<IEmployeeChecklistItem>(
     calculatedPercentage: { type: Number },
     isMet: { type: Boolean },
     managerNotes: { type: String },
+    employeeActualValue: { type: Schema.Types.Mixed },
+    employeeIsMet: { type: Boolean },
+    employeeNotes: { type: String },
     overrideHistory: [
       {
         overriddenBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -143,6 +150,7 @@ const EmployeeChecklistSchema = new Schema<IEmployeeChecklist>(
       default: "not-started",
     },
     managerFeedback: { type: String },
+    employeeSelfFeedback: { type: String },
     completedDate: { type: Date },
     isDeleted: { type: Boolean, default: false },
     archive: {
