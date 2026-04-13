@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
     firstName: string;
     lastName: string;
     role: string;
+    subrole?: string;
     organizationId: string;
   };
 }

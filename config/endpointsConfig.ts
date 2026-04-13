@@ -16,6 +16,7 @@ export const API_ENDPOINTS = {
     LOGIN: "/user/login",
     LOGOUT: "/user/logout",
     CHECKLOGIN: "/current/user",
+    GET_DIRECT_REPORTS: "/user/direct-reports",
     SEARCH: "/user/search",
     UPLOAD: "/user/upload-image/:id",
     METRICS: "/user/metrics",

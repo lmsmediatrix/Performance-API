@@ -10,6 +10,7 @@ interface DecodedToken {
     email: string;
     firstname?: string;
     lastname?: string;
+    subrole?: string;
     // direct org id (new tokens)
     organizationId?: string;
     // full org object (from LMS token)
@@ -107,6 +108,7 @@ const unifiedAuthMiddleware = asyncHandler(
         firstName: decoded.user.firstname || "",
         lastName: decoded.user.lastname || "",
         role: decoded.user.role || "",
+        subrole: decoded.user.subrole || "",
         organizationId: organizationIdFromToken,
       };
       req.token = token;
